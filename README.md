@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# BazarDor (বাজার দর)
 
-## Getting Started
+**BazarDor** is a modern and responsive daily commodity market price tracking application. It allows users to easily view real-time market prices, minimum/maximum price ranges, averages, and daily price fluctuation trends (price increases and decreases) for essentials such as rice, lentils, oil, vegetables, fish, meat, and spices.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠️ Technologies Used
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* **Framework:** Next.js (App Router)
+* **Styling:** Tailwind CSS
+* **Authentication:** BetterAuth (Email/Password & Social Login)
+* **Icons & UI:** React Icons, Lucide React, DaisyUI
+* **Notifications:** React Hot Toast
+* **Deployment:** Vercel / Netlify
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ⭐ 5 Key Features
 
-## Learn More
+1. **Dynamic Price Ticker:** 
+   An infinite-scrolling live price ticker located directly under the navigation bar displaying real-time daily price changes.
 
-To learn more about Next.js, take a look at the following resources:
+2. **Category Filtering & Sorting:** 
+   Allows users to filter products by specific categories and sort product listings dynamically (Price: Low to High | Price: High to Low).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+3. **Protected Product Details Route:** 
+   A secure details page for each product showing market-wise price breakdowns, average prices, price ranges, and percentage changes (accessible only to authenticated users).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+4. **Authentication System:** 
+   Full authentication workflow implemented using BetterAuth, supporting Email/Password Registration, Sign In, and Social Auth (Google/GitHub).
 
-## Deploy on Vercel
+5. **Profile Management & Updates:** 
+   Dedicated profile area allowing users to view account status, update user details via `authClient.updateUser`, and securely sign out.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
