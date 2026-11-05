@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import Navbar from "@/components/navbar";
+import { getCategories, getProducts } from "@/lib/api";
 import toast from "react-hot-toast";
 
 export default function CategoryDynamicPage() {
     const params = useParams();
+    const router = useRouter();
     const slug = params?.slug || "chal";
 
     const [categories, setCategories] = useState([]);
@@ -16,30 +19,32 @@ export default function CategoryDynamicPage() {
     const [loading, setLoading] = useState(true);
     const [sortOption, setSortOption] = useState("default");
 
-    // সঠিক API এন্ডপয়েন্ট ব্যবহার করে ডেটা ফেচ করা
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // ১. সব ক্যাটাগরি ফেচ করা (/api/bazardor/categories)
-                const catRes = await fetch('/api/bazardor/categories');
-                const catData = await catRes.json();
-                const categoriesList = catData.categories || catData; // ফরম্যাট অনুযায়ী
+                const catData = await getCategories();
+                const categoriesList = catData.categories || catData || [];
                 setCategories(categoriesList);
 
-                // নির্দিষ্ট ক্যাটাগরি ইনফো বের করা (/api/bazardor/categories/[slug])
-                const singleCatRes = await fetch(`/api/bazardor/categories/${slug}`);
-                const singleCatData = await singleCatRes.json();
-                setCurrentCategory(singleCatData);
+                const matchedCat = categoriesList.find(
+                    (c) => String(c.slug || c.id) === String(slug)
+                );
+                setCurrentCategory(matchedCat || { name: slug, icon: "🌾" });
 
-                // ২. ক্যাটাগরি অনুযায়ী প্রোডাক্ট ফিল্টার করে আনা (/api/bazardor/products?category=slug)
-                const prodRes = await fetch(`/api/bazardor/products?category=${slug}`);
-                const prodData = await prodRes.json();
-                setProducts(prodData.products || prodData);
+                const prodData = await getProducts();
+                const allProducts = prodData.products || prodData || [];
+
+                const filteredProducts = allProducts.filter((p) => {
+                    if (!p.category) return true;
+                    return String(p.category).toLowerCase() === String(slug).toLowerCase();
+                });
+
+                setProducts(filteredProducts.length > 0 ? filteredProducts : allProducts);
 
             } catch (error) {
                 console.error("Data fetch error:", error);
-                toast.error("ডাটা লোড করতে সমস্যা হয়েছে!");
+                toast.error("ডাটা লোড করতে সমস্যা হয়েছে!");
             } finally {
                 setLoading(false);
             }
@@ -50,7 +55,6 @@ export default function CategoryDynamicPage() {
         }
     }, [slug]);
 
-    // সর্টিং লজিক (দাম কম-বেশি)
     const sortedProducts = [...products].sort((a, b) => {
         if (sortOption === "low-high") return Number(a.price) - Number(b.price);
         if (sortOption === "high-low") return Number(b.price) - Number(a.price);
@@ -74,7 +78,7 @@ export default function CategoryDynamicPage() {
                 <div className="bg-white border-b border-gray-200/80 px-4 py-2.5">
                     <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar">
                         {categories.map((cat) => (
-                            <a
+                            <Link
                                 key={cat.id || cat.slug || cat._id}
                                 href={`/categories/${cat.slug || cat.id}`}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition whitespace-nowrap cursor-pointer ${slug === (cat.slug || cat.id)
@@ -84,7 +88,7 @@ export default function CategoryDynamicPage() {
                             >
                                 <span>{cat.icon || "📦"}</span>
                                 <span>{cat.name}</span>
-                            </a>
+                            </Link>
                         ))}
                     </div>
                 </div>
@@ -123,39 +127,46 @@ export default function CategoryDynamicPage() {
                         </div>
                     </div>
 
-                    {/* Dynamic Product Cards Grid */}
+                    {/* Product Cards Grid with Click Test */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {sortedProducts.map((product) => (
-                            <div
-                                key={product._id || product.id}
-                                className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-2xs hover:shadow-md transition space-y-4 flex flex-col justify-between"
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl border border-gray-100 flex-shrink-0">
-                                        {currentCategory?.icon || "🌾"}
+                        {sortedProducts.map((product, index) => {
+                            const productId = product._id || product.id || index;
+                            return (
+                                <div
+                                    key={productId}
+                                    onClick={() => {
+                                        alert("ক্লিক কাজ করেছে! ID: " + productId);
+                                        router.push(`/products/${productId}`);
+                                    }}
+                                    className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-2xs hover:shadow-md transition space-y-4 flex flex-col justify-between cursor-pointer h-full relative z-10"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-xl border border-gray-100 flex-shrink-0">
+                                            {currentCategory?.icon || "🌾"}
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-gray-900">{product.name}</h3>
+                                            <p className="text-[11px] text-gray-400 mt-0.5">{product.unit || "প্রতি কেজি"}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-sm font-bold text-gray-900">{product.name}</h3>
-                                        <p className="text-[11px] text-gray-400 mt-0.5">{product.unit || "প্রতি কেজি"}</p>
-                                    </div>
-                                </div>
 
-                                <div className="flex items-end justify-between pt-2 border-t border-gray-50">
-                                    <div>
-                                        <p className="text-[10px] text-gray-400 font-medium">আজকের দাম</p>
-                                        <p className="text-lg font-extrabold text-gray-900 mt-0.5">
-                                            {product.price} <span className="text-xs font-normal text-gray-600">টাকা</span>
-                                        </p>
+                                    <div className="flex items-end justify-between pt-2 border-t border-gray-50">
+                                        <div>
+                                            <p className="text-[10px] text-gray-400 font-medium">আজকের দাম</p>
+                                            <p className="text-lg font-extrabold text-gray-900 mt-0.5">
+                                                {product.price} <span className="text-xs font-normal text-gray-600">টাকা</span>
+                                            </p>
+                                        </div>
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${product.isUp || product.change?.includes('▲')
+                                                ? "bg-red-50 text-red-500"
+                                                : "bg-emerald-50 text-emerald-600"
+                                            }`}>
+                                            {product.change || "— 0.0%"}
+                                        </span>
                                     </div>
-                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${product.isUp || product.change?.includes('▲')
-                                            ? "bg-red-50 text-red-500"
-                                            : "bg-emerald-50 text-emerald-600"
-                                        }`}>
-                                        {product.change || "— 0.0%"}
-                                    </span>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                 </main>
