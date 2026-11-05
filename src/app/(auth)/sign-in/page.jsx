@@ -1,4 +1,5 @@
 'use client';
+import { authClient } from "@/lib/auth-client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +13,12 @@ export default function SignInPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+    const handleGoogleSignIn = async () => {
+        await authClient.signIn.social({
+            provider: "google",
+            callbackURL: "/",
+        });
+    };
 
     const handleSignIn = async (e) => {
         e.preventDefault();
@@ -160,6 +167,7 @@ export default function SignInPage() {
                         <div className="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
+                                onClick={handleGoogleSignIn}
                                 className="border border-gray-200 hover:bg-gray-50 text-gray-700 text-[11px] font-medium py-2 px-2 rounded-lg flex items-center justify-center gap-1.5 transition"
                             >
                                 <FcGoogle size={16} /> Google দিয়ে চালিয়ে যান
