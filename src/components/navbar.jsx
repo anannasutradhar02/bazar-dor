@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { useSession, authClient } from "@/lib/auth-client";
 
 export default function Navbar({ tickerProducts = [] }) {
     const { data: session, isPending } = useSession();
     const user = session?.user;
+    const router = useRouter();
 
     // Dropdown toggle state
     const [isOpen, setIsOpen] = useState(false);
@@ -23,17 +25,16 @@ export default function Navbar({ tickerProducts = [] }) {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Sign out handler function (Better Auth ba apnar auth client-er signout method ekhane call hobe)
+    // Working Sign Out Handler with Better Auth & Fallback
     const handleSignOut = async () => {
         try {
-            // Jodi apnar auth-client e signout function thake, e.g., signOut()
-            // await authClient.signOut();
-            // window.location.href = "/sign-in";
-
-            // Temporary placeholder for signout action:
-            console.log("Signing out...");
+            await authClient.signOut();
         } catch (error) {
             console.error("Sign out failed", error);
+        } finally {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = "/sign-in";
         }
     };
 
@@ -78,8 +79,8 @@ export default function Navbar({ tickerProducts = [] }) {
                                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 px-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                                     {/* User Info Header inside Dropdown */}
                                     <div className="px-3 pb-2.5 mb-1.5 border-b border-gray-100">
-                                        <p className="text-xs font-bold text-gray-900 truncate">{user.name || "Rezwan Ahmed"}</p>
-                                        <p className="text-[11px] text-gray-400 truncate">{user.email || "rezwanahmed@gmail.com"}</p>
+                                        <p className="text-xs font-bold text-gray-900 truncate">{user.name || "User"}</p>
+                                        <p className="text-[11px] text-gray-400 truncate">{user.email || ""}</p>
                                     </div>
 
                                     {/* Menu Items */}

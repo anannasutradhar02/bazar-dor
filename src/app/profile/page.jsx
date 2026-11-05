@@ -9,7 +9,6 @@ export default function ProfilePage() {
     const { data: session, isPending } = authClient.useSession();
     const router = useRouter();
 
-    // যদি সেশন লোড হতে থাকে
     if (isPending) {
         return (
             <div className="min-h-screen bg-[#F4F6F4] flex items-center justify-center text-gray-500 text-sm">
@@ -18,15 +17,14 @@ export default function ProfilePage() {
         );
     }
 
-    // যদি ইউজার লগইন করা না থাকে, তবে সাইন-ইন পেজে রিডাইরেক্ট করা
     if (!session) {
         return (
             <div className="min-h-screen bg-[#F4F6F4] flex flex-col items-center justify-center text-center px-4">
                 <div className="text-4xl mb-3">🔒</div>
-                <h2 className="text-lg font-bold text-gray-900 mb-2">অনুমোদিত নয় (Unauthorized)</h2>
+                <h2 className="text-lg font-bold text-gray-900 mb-2">অনুমোদিত নয় (Unauthorized)</h2>
                 <p className="text-xs text-gray-500 mb-4">এই পেজটি দেখতে হলে আপনাকে প্রথমে সাইন ইন করতে হবে।</p>
                 <Link
-                    href="/signin"
+                    href="/sign-in"
                     className="bg-[#05893E] hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition"
                 >
                     সাইন ইন করুন
@@ -37,26 +35,24 @@ export default function ProfilePage() {
 
     const user = session.user;
 
-    // সাইন আউট হ্যান্ডলার
+    // সাইন আউট হ্যান্ডলার (সফল লগআউট এবং ক্যাশ ক্লিয়ার করার জন্য আপডেট করা হলো)
     const handleSignOut = async () => {
-        await authClient.signOut({
-            fetchOptions: {
-                onSuccess: () => {
-                    toast.success("সফলভাবে লগআউট করা হয়েছে!");
-                    router.push("/signin");
-                },
-                onError: (ctx) => {
-                    toast.error(ctx.error.message || "লগআউট করতে সমস্যা হয়েছে!");
-                }
-            }
-        });
+        try {
+            await authClient.signOut();
+            toast.success("সফলভাবে লগআউট করা হয়েছে!");
+        } catch (error) {
+            console.error("Sign out error:", error);
+        } finally {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = "/sign-in";
+        }
     };
 
     return (
         <div className="min-h-screen bg-[#F4F6F4] text-gray-800 font-sans py-10 px-4">
             <div className="max-w-xl mx-auto space-y-6">
 
-                {/* Top Header / Back Home */}
                 <div className="flex items-center justify-between">
                     <Link href="/" className="text-xs font-semibold text-[#05893E] hover:underline flex items-center gap-1">
                         ← হোম পেজে ফিরে যান
@@ -66,14 +62,19 @@ export default function ProfilePage() {
                     </span>
                 </div>
 
-                {/* Profile Card */}
                 <div className="bg-white border border-gray-200/80 rounded-2xl p-8 shadow-2xs space-y-6">
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 rounded-full bg-[#EBF3EC] text-[#05893E] flex items-center justify-center text-2xl font-bold border border-emerald-100 shadow-2xs">
-                            {user?.name ? user.name.charAt(0).toUpperCase() : "👤"}
+                            {user?.image ? (
+                                <img src={user.image} alt={user.name} className="w-full h-full rounded-full object-cover" />
+                            ) : user?.name ? (
+                                user.name.charAt(0).toUpperCase()
+                            ) : (
+                                "👤"
+                            )}
                         </div>
                         <div>
-                            <h1 className="text-lg font-bold text-gray-900">{user?.name || "নাম পাওয়া যায়নি"}</h1>
+                            <h1 className="text-lg font-bold text-gray-900">{user?.name || "নাম পাওয়া যায়নি"}</h1>
                             <p className="text-xs text-gray-400">{user?.email || "ইমেল উপলব্ধ নেই"}</p>
                         </div>
                     </div>
@@ -85,22 +86,21 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex justify-between text-xs">
                             <span className="text-gray-400">ইমেল ভেরিফিকেশন:</span>
-                            <span className="text-[#05893E] font-semibold">{user?.emailVerified ? "ভেরিফাই করা" : "ভেরিফাই করা হয়নি"}</span>
+                            <span className="text-[#05893E] font-semibold">{user?.emailVerified ? "ভেরিফাই করা" : "ভেরিফাই করা হয়নি"}</span>
                         </div>
                     </div>
 
-                    {/* Action Buttons (C3: Update Info & SignOut) */}
                     <div className="border-t border-gray-100 pt-6 flex flex-col sm:flex-row items-center gap-3">
                         <Link
                             href="/profile/update"
                             className="w-full sm:w-auto text-center bg-[#05893E] hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition shadow-2xs"
                         >
-                            Update Information
+                            তথ্য আপডেট করুন
                         </Link>
 
                         <button
                             onClick={handleSignOut}
-                            className="w-full sm:w-auto text-center bg-gray-50 hover:bg-red-50 text-red-600 border border-gray-200 hover:border-red-200 text-xs font-semibold px-5 py-2.5 rounded-lg transition"
+                            className="w-full sm:w-auto text-center bg-gray-50 hover:bg-red-50 text-red-600 border border-gray-200 hover:border-red-200 text-xs font-semibold px-5 py-2.5 rounded-lg transition cursor-pointer"
                         >
                             সাইন আউট করুন
                         </button>

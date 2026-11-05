@@ -6,7 +6,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
-import { signUp } from '@/lib/auth-client';
+import { signUp, authClient } from '@/lib/auth-client';
 import Navbar from '@/components/navbar';
 
 export default function SignUpPage() {
@@ -40,6 +40,32 @@ export default function SignUpPage() {
             toast.error('সার্ভার কানেকশন ত্রুটি!');
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Google দিয়ে সাইন-ইন/আপ হ্যান্ডলার
+    const handleGoogleSignIn = async () => {
+        try {
+            await authClient.signIn.social({
+                provider: "google",
+                callbackURL: "/",
+            });
+        } catch (err) {
+            console.log("Google Sign-In Error:", err);
+            toast.error('Google দিয়ে সাইন ইন করতে সমস্যা হয়েছে!');
+        }
+    };
+
+    // GitHub দিয়ে সাইন-ইন/আপ হ্যান্ডলার
+    const handleGithubSignIn = async () => {
+        try {
+            await authClient.signIn.social({
+                provider: "github",
+                callbackURL: "/",
+            });
+        } catch (err) {
+            console.log("GitHub Sign-In Error:", err);
+            toast.error('GitHub দিয়ে সাইন ইন করতে সমস্যা হয়েছে!');
         }
     };
 
@@ -116,10 +142,18 @@ export default function SignUpPage() {
 
                     {/* Social Logins */}
                     <div className="grid grid-cols-2 gap-3">
-                        <button className="btn btn-outline border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-normal normal-case flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleGoogleSignIn}
+                            className="btn btn-outline border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-normal normal-case flex items-center justify-center gap-2"
+                        >
                             <FcGoogle size={18} /> Google দিয়ে চালিয়ে যান
                         </button>
-                        <button className="btn btn-outline border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-normal normal-case flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleGithubSignIn}
+                            className="btn btn-outline border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-normal normal-case flex items-center justify-center gap-2"
+                        >
                             <FaGithub size={18} /> GitHub দিয়ে চালিয়ে যান
                         </button>
                     </div>
@@ -144,7 +178,7 @@ export default function SignUpPage() {
             {/* Footer */}
             <footer className="bg-white border-t border-gray-200 py-4 px-6 text-xs text-gray-500">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-                    <p>বাজার দর — প্রয়োজনীয় পণ্যের দাম এক নজরে।</p>
+                    <p>বাজার দর — প্রয়োজনীয় পণ্যের দাম এক নজরে।</p>
                     <p>সকল দাম সম্ভাব্য; বাজার অবস্থার ওপর নির্ভর করে পরিবর্তিত হয়।</p>
                 </div>
             </footer>

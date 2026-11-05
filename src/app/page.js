@@ -1,7 +1,12 @@
-import { Suspense } from "react";
+'use client';
+
+import { Suspense, useState, useEffect } from "react";
 import { getCategories, getProducts } from "@/lib/api";
 import Navbar from "@/components/navbar";
 import Link from "next/link";
+import { useSession, authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 
 export default function Home({ searchParams }) {
   return (
@@ -11,28 +16,81 @@ export default function Home({ searchParams }) {
   );
 }
 
-async function HomeContent({ searchParams }) {
-  const resolvedSearchParams = await searchParams;
-  const category = resolvedSearchParams?.category || "";
+function HomeContent({ searchParams }) {
+  const [resolvedSearchParams, setResolvedSearchParams] = useState({});
+  const [productsData, setProductsData] = useState([]);
+  const [categoriesData, setCategoriesData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // এপিআই থেকে সরাসরি সব পণ্য ও ক্যাটাগরি ফেচ করা হচ্ছে
-  let productsData = await getProducts();
-  let categoriesData = await getCategories();
+  // User session check
+  const { data: session, isPending } = useSession();
+  const user = session?.user;
+
+  // Home Signup Form States
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function resolveParamsAndFetch() {
+      if (searchParams) {
+        const resolved = await searchParams;
+        setResolvedSearchParams(resolved);
+      }
+      try {
+        const [pData, cData] = await Promise.all([getProducts(), getCategories()]);
+        setProductsData(pData);
+        setCategoriesData(cData);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    resolveParamsAndFetch();
+  }, [searchParams]);
+
+  const category = resolvedSearchParams?.category || "";
 
   const allProducts = Array.isArray(productsData) 
     ? productsData 
     : productsData.data || productsData.products || [];
 
-  const allCategories = Array.isArray(categoriesData) 
-    ? categoriesData 
-    : categoriesData.data || categoriesData.categories || [];
+  // সাইন-আপ হ্যান্ডলার
+  const handleHomeSignUp = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
 
-  // প্রতিটি নির্দিষ্ট পণ্যের নাম ধরে নিখুঁত আইকন সেট করার ফাংশন
+    await authClient.signUp.email({
+      email,
+      password,
+      name,
+    }, {
+      onSuccess: () => {
+        toast.success("সফলভাবে একাউন্ট তৈরি হয়েছে!");
+        router.push("/sign-in");
+      },
+      onError: (ctx) => {
+        toast.error(ctx.error.message || "রেজিস্ট্রেশন করতে সমস্যা হয়েছে!");
+        setSubmitting(false);
+      }
+    });
+  };
+
+  // সোশ্যাল সাইন-আপ (Google)
+  const handleSocialSignIn = async () => {
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/",
+    });
+  };
+
   const getProductDisplayIcon = (product) => {
     const name = String(product.nameBn || "").toLowerCase();
     const cat = String(product.category || "").toLowerCase();
 
-    // ১. নির্দিষ্ট পণ্য অনুযায়ী সঠিক আইকন
     if (name.includes("চাল") || name.includes("মিনিকেট") || name.includes("নাজিরশাইল") || name.includes("পোলাও")) return "🍚";
     if (name.includes("মসুর") || name.includes("মুগ") || name.includes("ছোলা") || name.includes("খেসারি") || name.includes("মাষকলাই")) return "🥣";
     if (name.includes("তেল") || name.includes("সয়াবিন") || name.includes("সরিষার")) return "🍾";
@@ -48,7 +106,6 @@ async function HomeContent({ searchParams }) {
     if (name.includes("দুধ") || name.includes("দই") || name.includes("মাখন")) return "🥛";
     if (name.includes("টমেটো") || name.includes("বেগুন") || name.includes("পটল") || name.includes("ঢেঁড়স") || name.includes("সবজি")) return "🥦";
 
-    // ২. ক্যাটাগরি ভিত্তিক ফলব্যাক (যদি নামের সাথে হুবহু মিল না থাকে)
     if (cat.includes("chal")) return "🍚";
     if (cat.includes("dal")) return "🥣";
     if (cat.includes("tel")) return "🍾";
@@ -61,7 +118,6 @@ async function HomeContent({ searchParams }) {
     return "🛒";
   };
 
-  // ক্যাটাগরি অনুযায়ী নিখুঁতভাবে ফিল্টার করার লজিক
   let products = allProducts;
   if (category) {
     const targetCat = String(category).toLowerCase();
@@ -82,15 +138,86 @@ async function HomeContent({ searchParams }) {
   const priceIncreased = allProducts.filter((p) => p.change?.dir === "up");
   const priceDecreased = allProducts.filter((p) => p.change?.dir === "down");
 
-  const isLoggedIn = true; 
-
   return (
     <div className="min-h-screen bg-[#F4F6F4] text-gray-800 font-sans">
       
-      {/* Navbar Component with Dynamic Ticker Products */}
-      <Navbar isLoggedIn={isLoggedIn} tickerProducts={allProducts} />
+      {/* 1. Navbar & Ticker */}
+      <Navbar tickerProducts={allProducts} />
 
-      {/* Hero Banner Section */}
+      {/* 2. Navbar-এর ঠিক নিচে Signup Form (Shudhumatro user login kora na thakle dekhabe) */}
+      {/* {!isPending && !user && !category && (
+        <section className="max-w-md mx-auto px-4 mt-6">
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-gray-900 mb-1 text-center">নতুন অ্যাকাউন্ট তৈরি করুন</h3>
+            <p className="text-[11px] text-gray-400 mb-4 text-center">বাজার দর আপডেট পেতে রেজিস্টার করুন</p>
+
+            <form onSubmit={handleHomeSignUp} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 mb-1">নাম (Name)</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  placeholder="আপনার নাম লিখুন"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-[#05893E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 mb-1">ইমেল (Email)</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  placeholder="example@email.com"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-[#05893E]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-700 mb-1">পাসওয়ার্ড (Password)</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="কমপক্ষে ৬ অক্ষর"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-[#05893E]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#05893E] hover:bg-emerald-700 text-white text-xs font-semibold py-2.5 rounded-lg transition mt-2 cursor-pointer"
+              >
+                {submitting ? "তৈরি হচ্ছে..." : "রেজিস্টার করুন"}
+              </button>
+            </form>
+
+            <div className="mt-3">
+              <button
+                onClick={handleSocialSignIn}
+                type="button"
+                className="w-full border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-semibold py-2.5 rounded-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>🌐</span> Google দিয়ে সাইন ইন
+              </button>
+            </div>
+
+            <p className="text-center text-[11px] text-gray-500 mt-3">
+              অ্যাকাউন্ট আছে?{" "}
+              <Link href="/sign-in" className="text-[#05893E] font-semibold hover:underline">
+                সাইন ইন করুন
+              </Link>
+            </p>
+          </div>
+        </section>
+      )} */}
+
+      {/* 3. Hero Banner Section */}
       <section className="max-w-6xl mx-auto px-4 mt-8">
         <div className="bg-white border border-gray-200/80 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xs">
           <div className="space-y-4 max-w-xl">
@@ -103,12 +230,14 @@ async function HomeContent({ searchParams }) {
             <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
               চাল, ডাল, তেল, সবজি, মাছ, মাংস, ডিম ও মসলার দাম — বাজারভিত্তিক বিস্তারিত, গড়, সর্বনিম্ন-সর্বাধিক এবং দামের পরিবর্তন এক জায়গায়।
             </p>
-            <a
-              href="#all-products"
-              className="inline-block bg-[#05893E] hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition shadow-2xs text-center"
-            >
-              সব পণ্য দেখুন
-            </a>
+            <div className="flex items-center gap-3">
+              <a
+                href="#all-products"
+                className="bg-[#05893E] hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-lg transition shadow-2xs text-center"
+              >
+                সব পণ্য দেখুন
+              </a>
+            </div>
           </div>
 
           <div className="w-44 h-36 flex items-center justify-center bg-[#F8FAF8] rounded-xl border border-gray-100 text-6xl shadow-2xs">
@@ -117,72 +246,74 @@ async function HomeContent({ searchParams }) {
         </div>
       </section>
 
-      {/* Main Content Sections */}
+      {/* Main Content Sections (Gainers, Losers, All Products) */}
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
         
-        {/* Top Gainers */}
-        {priceIncreased.length > 0 && !category && (
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-              <span className="text-red-500">▲</span> আজ দাম বেড়েছে
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {priceIncreased.slice(0, 6).map((product, index) => {
-                const productId = product._id || product.id || index;
-                return (
-                  <Link 
-                    key={productId} 
-                    href={`/products/${productId}`}
-                    className="p-4 bg-white border border-gray-200/70 rounded-xl flex items-center justify-between shadow-2xs hover:shadow-md transition block"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getProductDisplayIcon(product)}</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-900">{product.nameBn}</h4>
-                        <p className="text-[10px] text-gray-400">{product.categoryNameBn}</p>
-                        <p className="text-xs font-bold text-gray-900 mt-1">৳{product.today}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
-                      ▲ {product.change?.pct}%
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {!category && (
+          <div className="space-y-8">
+            {priceIncreased.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
+                  <span className="text-red-500">▲</span> আজ দাম বেড়েছে
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {priceIncreased.slice(0, 6).map((product, index) => {
+                    const productId = product._id || product.id || index;
+                    return (
+                      <Link 
+                        key={productId} 
+                        href={`/products/${productId}`}
+                        className="p-4 bg-white border border-gray-200/70 rounded-xl flex items-center justify-between shadow-2xs hover:shadow-md transition block"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getProductDisplayIcon(product)}</span>
+                          <div>
+                            <h4 className="text-xs font-bold text-gray-900">{product.nameBn}</h4>
+                            <p className="text-[10px] text-gray-400">{product.categoryNameBn}</p>
+                            <p className="text-xs font-bold text-gray-900 mt-1">৳{product.today}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">
+                          ▲ {product.change?.pct}%
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-        {/* Top Losers */}
-        {priceDecreased.length > 0 && !category && (
-          <div>
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
-              <span className="text-emerald-600">▼</span> আজ দাম কমেছে
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {priceDecreased.slice(0, 6).map((product, index) => {
-                const productId = product._id || product.id || index;
-                return (
-                  <Link 
-                    key={productId} 
-                    href={`/products/${productId}`}
-                    className="p-4 bg-white border border-gray-200/70 rounded-xl flex items-center justify-between shadow-2xs hover:shadow-md transition block"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{getProductDisplayIcon(product)}</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-900">{product.nameBn}</h4>
-                        <p className="text-[10px] text-gray-400">{product.categoryNameBn}</p>
-                        <p className="text-xs font-bold text-gray-900 mt-1">৳{product.today}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                      ▼ {product.change?.pct}%
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
+            {priceDecreased.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-1.5">
+                  <span className="text-emerald-600">▼</span> আজ দাম কমেছে
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {priceDecreased.slice(0, 6).map((product, index) => {
+                    const productId = product._id || product.id || index;
+                    return (
+                      <Link 
+                        key={productId} 
+                        href={`/products/${productId}`}
+                        className="p-4 bg-white border border-gray-200/70 rounded-xl flex items-center justify-between shadow-2xs hover:shadow-md transition block"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getProductDisplayIcon(product)}</span>
+                          <div>
+                            <h4 className="text-xs font-bold text-gray-900">{product.nameBn}</h4>
+                            <p className="text-[10px] text-gray-400">{product.categoryNameBn}</p>
+                            <p className="text-xs font-bold text-gray-900 mt-1">৳{product.today}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                          ▼ {product.change?.pct}%
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
